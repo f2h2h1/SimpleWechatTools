@@ -22,8 +22,13 @@ class wechatlib
         $this->app_secret = empty($conf['app_secret']) ? '' : $conf['app_secret'];
     }
 
+    public function get_appid()
+    {
+        return $this->app_id;
+    }
+
     /**
-     * 验证Token
+     * 验证 Token
      */
     public function check_token()
     {
@@ -56,11 +61,6 @@ class wechatlib
         }
     }
 
-    public function get_appid()
-    {
-        return $this->app_id;
-    }
-
     /**
      * 接收微信的消息
      */
@@ -76,28 +76,6 @@ class wechatlib
     }
 
     /**
-     * 回复文本消息
-     */
-    public function transmit_text($object, $content)
-    {
-        if ( ! isset($content) or empty($content))
-        {
-            return "";
-        }
-
-        $xmlTpl = "<xml>
-                    <ToUserName><![CDATA[%s]]></ToUserName>
-                    <FromUserName><![CDATA[%s]]></FromUserName>
-                    <CreateTime>%s</CreateTime>
-                    <MsgType><![CDATA[text]]></MsgType>
-                    <Content><![CDATA[%s]]></Content>
-                </xml>";
-        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time(), $content);
-
-        return $result;
-    }
-
-    /**
      * 获取access_token
      */
     public function get_access_token()
@@ -109,6 +87,10 @@ class wechatlib
         } else if ($ret['expire_time'] < time()) {
             $this->del_cache($key);
             $access_token = $this->refresh_get_access_token();
+            $key = "access_token@".$this->app_id;
+            $value = $access_token;
+            $expire_time = time() + 7000;
+            $this->set_cache($key, $value, $expire_time);
         } else {
             $access_token = $ret['value'];
         }
@@ -138,13 +120,167 @@ class wechatlib
         }
         $access_token = $ret['access_token'];
 
-        $key = "access_token@".$this->app_id;
-        $value = $access_token;
-        $expire_time = time() + 7000;
-        $this->set_cache($key, $value, $expire_time);
-
         return $access_token;
     }
+
+# region 被动回复消息
+
+    /**
+     * 回复文本消息
+     */
+    public function transmit_text($object, $content)
+    {
+        if ( ! isset($content) or empty($content))
+        {
+            return "";
+        }
+
+        $xmlTpl = "<xml>
+                    <ToUserName><![CDATA[%s]]></ToUserName>
+                    <FromUserName><![CDATA[%s]]></FromUserName>
+                    <CreateTime>%s</CreateTime>
+                    <MsgType><![CDATA[text]]></MsgType>
+                    <Content><![CDATA[%s]]></Content>
+                </xml>";
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time(), $content);
+
+        return $result;
+    }
+
+    //回复图文消息
+    public function transmitNews($object, $newsArray)
+    {
+        if (!is_array($newsArray)) {
+            return "";
+        }
+        $itemTpl = "<item>
+                        <Title><![CDATA[%s]]></Title>
+                        <Description><![CDATA[%s]]></Description>
+                        <PicUrl><![CDATA[%s]]></PicUrl>
+                        <Url><![CDATA[%s]]></Url>
+                    </item>";
+
+        $item_str = "";
+        foreach ($newsArray as $item) {
+            $item_str .= sprintf($itemTpl, $item['Title'], $item['Description'], $item['PicUrl'], $item['Url']);
+        }
+        $xmlTpl = "<xml>
+                        <ToUserName><![CDATA[%s]]></ToUserName>
+                        <FromUserName><![CDATA[%s]]></FromUserName>
+                        <CreateTime>%s</CreateTime>
+                        <MsgType><![CDATA[news]]></MsgType>
+                        <ArticleCount>%s</ArticleCount>
+                        <Articles>
+                    $item_str    </Articles>
+                    </xml>";
+        
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time(), count($newsArray));
+        return $result;
+    }
+
+    /**
+     * 回复音乐消息
+     */
+    public function transmitMusic($object, $musicArray)
+    {
+        if (!is_array($musicArray)) {
+            return "";
+        }
+        $itemTpl = "<Music>
+                        <Title><![CDATA[%s]]></Title>
+                        <Description><![CDATA[%s]]></Description>
+                        <MusicUrl><![CDATA[%s]]></MusicUrl>
+                        <HQMusicUrl><![CDATA[%s]]></HQMusicUrl>
+                    </Music>";
+        
+        $item_str = sprintf($itemTpl, $musicArray['Title'], $musicArray['Description'], $musicArray['MusicUrl'], $musicArray['HQMusicUrl']);
+        
+        $xmlTpl = "<xml>
+                        <ToUserName><![CDATA[%s]]></ToUserName>
+                        <FromUserName><![CDATA[%s]]></FromUserName>
+                        <CreateTime>%s</CreateTime>
+                        <MsgType><![CDATA[music]]></MsgType>
+                        $item_str
+                    </xml>";
+        
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+        return $result;
+    }
+
+    /**
+     * 回复图片消息
+     */
+    public function transmitImage($object, $imageArray)
+    {
+        $itemTpl = "<Image>
+                        <MediaId><![CDATA[%s]]></MediaId>
+                    </Image>";
+        
+        $item_str = sprintf($itemTpl, $imageArray['MediaId']);
+        
+        $xmlTpl = "<xml>
+                        <ToUserName><![CDATA[%s]]></ToUserName>
+                        <FromUserName><![CDATA[%s]]></FromUserName>
+                        <CreateTime>%s</CreateTime>
+                        <MsgType><![CDATA[image]]></MsgType>
+                        $item_str
+                    </xml>";
+        
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+        return $result;
+    }
+
+    /**
+     * 回复语音消息
+     */
+    public function transmitVoice($object, $voiceArray)
+    {
+        $itemTpl = "<Voice>
+                        <MediaId><![CDATA[%s]]></MediaId>
+                    </Voice>";
+        
+        $item_str = sprintf($itemTpl, $voiceArray['MediaId']);
+        $xmlTpl = "<xml>
+                        <ToUserName><![CDATA[%s]]></ToUserName>
+                        <FromUserName><![CDATA[%s]]></FromUserName>
+                        <CreateTime>%s</CreateTime>
+                        <MsgType><![CDATA[voice]]></MsgType>
+                        $item_str
+                    </xml>";
+        
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+        return $result;
+    }
+
+    /**
+     * 回复视频消息
+     */
+    public function transmitVideo($object, $videoArray)
+    {
+        $itemTpl = "<Video>
+                        <MediaId><![CDATA[%s]]></MediaId>
+                        <ThumbMediaId><![CDATA[%s]]></ThumbMediaId>
+                        <Title><![CDATA[%s]]></Title>
+                        <Description><![CDATA[%s]]></Description>
+                    </Video>";
+        
+        $item_str = sprintf($itemTpl, $videoArray['MediaId'], $videoArray['ThumbMediaId'], $videoArray['Title'], $videoArray['Description']);
+        
+        $xmlTpl = "<xml>
+                    <ToUserName><![CDATA[%s]]></ToUserName>
+                    <FromUserName><![CDATA[%s]]></FromUserName>
+                    <CreateTime>%s</CreateTime>
+                    <MsgType><![CDATA[video]]></MsgType>
+                    $item_str
+                </xml>";
+        
+        $result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+        return $result;
+    }
+
+# endregion 被动回复消息
+
+# region 用户管理
 
     /**
      * 获取网页授权的access_token
@@ -225,6 +361,10 @@ class wechatlib
         return $ret;
     }
 
+# endregion 用户管理
+
+# region 客服消息
+
     /**
      * 发送客服消息
      */
@@ -250,6 +390,21 @@ class wechatlib
     }
 
     /**
+     * 发送客服消息，文本消息
+     */
+    public function send_custom_message_text($touser, $content)
+    {
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "text",
+            'text' => array(
+                'content' => urlencode("$content"),
+            )                         
+        );
+        return $this->send_custom_message($msg);
+    }
+
+    /**
      * 发送客服消息，图片消息
      */
     public function send_custom_message_image($touser, $media_id)
@@ -263,6 +418,122 @@ class wechatlib
         );
         return $this->send_custom_message($msg);
     }
+
+    /**
+     * 发送客服消息，语音消息
+     */
+    public function send_custom_message_voice($touser, $media_id)
+    {
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "voice",
+            'voice' => array(
+                'media_id' => "$media_id",
+            )                         
+        );
+        return $this->send_custom_message($msg);
+    }
+
+    /**
+     * 发送客服消息，视频消息
+     */
+    public function send_custom_message_video($touser, $data)
+    {
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "video",
+            'video' => array(
+                'media_id' => $data['MediaId'],
+                'thumb_media_id' => $data['ThumbMediaId'],
+                'title' => urlencode($data['Title']),
+                'description' => urlencode($data['Description']),
+            )                         
+        );
+        return $this->send_custom_message($msg);
+    }
+
+    /**
+     * 发送客服消息，音乐消息
+     */
+    public function send_custom_message_music($touser, $data)
+    {
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "music",
+            'music' => array(
+                'title' => $data['Title'],
+                'description' => urlencode($data['Description']),
+                'musicurl' => $data['MusicUrl'],
+                'hqmusicurl' => $data['HQMusicUrl'],
+                'thumb_media_id' => $data['Thumb_media_id'],
+            )                         
+        );
+        return $this->send_custom_message($msg);
+    }
+
+    /**
+     * 发送客服消息，发送图文消息（点击跳转到外链）
+     */
+    public function send_custom_message_news($touser, $data)
+    {
+        foreach ($data as $key => $value) {
+            $articles[$key]['title'] = urlencode($value['Title']);
+            $articles[$key]['description'] = urlencode($value['Description']);
+            $articles[$key]['url'] = $value['Url'];
+            $articles[$key]['picurl'] = $value['PicUrl'];
+        }
+        
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "news",
+            'news' => array(
+                'articles' => $articles,
+            ),                        
+        );
+        
+        return $this->send_custom_message($msg);
+    }
+    
+    /**
+     * 发送客服消息，图文消息（点击跳转到图文消息页面）
+     */
+    public function send_custom_message_mpnews($touser, $media_id)
+    {
+        foreach ($media_id as $key => $value) {
+            $temp[$key]['media_id'] = $value;
+        }
+        
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "mpnews",
+            'mpnews' => $temp,                       
+        );
+        
+        return $this->send_custom_message($msg);
+    }
+
+    /**
+     * 发送客服消息，发送卡券
+     */
+    public function send_custom_message_wxcard($touser, $card_id)
+    {
+        $sgins=$this->get_cardSign($card_id);
+        
+        $msg = array(
+            'touser' => "$touser",
+            'msgtype' => "wxcard",
+            'wxcard' =>  array(
+                'card_id' => "$card_id",
+                'card_ext' => "$sgins",
+            ),                         
+        );
+        
+        return $this->send_custom_message($msg);
+    }
+
+# endregion 客服消息
+
+# region 二维码
 
     /**
      * 创建临时二维码
@@ -295,6 +566,10 @@ class wechatlib
         }
         return $ret;
     }
+
+# endregion 二维码
+
+# region 素材管理
 
     /**
      * 上传临时素材-图片
@@ -373,6 +648,10 @@ class wechatlib
         return $ret;
     }
 
+# endregion 素材管理
+
+# region 模板消息
+
     /**
      * 发送模板消息
      */
@@ -401,6 +680,10 @@ class wechatlib
         $ret_raw = file_get_contents($url, false, $context);
         return $ret_raw;
     }
+
+# endregion 模板消息
+
+# region 缓存部分
 
     private function set_cache($name, $value, $expire_time)
     {
@@ -434,4 +717,7 @@ class wechatlib
     {
         Db::name('wechat_cache')->where('name',$name)->delete();
     }
+
+# endregion 缓存部分
+
 }
