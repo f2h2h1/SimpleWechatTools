@@ -1,6 +1,28 @@
 <?php
 // declare(strict_types=1);
+
+// 接口名称
+// 接口url
+// 接口发送的数据
+// 微信返回的数据
+// 错误类型
+// 错误的详细信息，哪个文件，第几行，第几列
+
+
+// 请求成功
+// json解释成功
+// 没有错误代码
+// 存在关键字段
+
+// POST
+// GET
+// multipart/form-data;
+// application/json;charset=UTF-8
+// application/x-www-form-urlencoded
+
 namespace app\simple\lib;
+
+use think\Db;
 
 class WechatException extends \Exception
 {
@@ -207,24 +229,12 @@ class wechatlib
             );
             $context = stream_context_create($opts);
             $response_raw = file_get_contents($url, false, $context);
-            if ($response_raw === false) {
-                $errinfo = array(
-                    'msg' => '请求失败',
-                    'url' => $url,
-                    'response_raw' => $response_raw
-                );
-                throw new WechatException($errinfo);
-            }
-            $ret = json_decode($response_raw, true);
-            if ($ret === null) {
-                $errinfo = array(
-                    'msg' => 'json 解释错误',
-                    'url' => $url,
-                    'response_raw' => $response_raw,
-                    'json_last_error_msg' => json_last_error_msg()
-                );
-                throw new WechatException($errinfo);
-            }
+
+            $errinfo = [];
+            $errinfo['url'] = $url;
+            $errinfo['api'] = '创建菜单';
+            $field = [];
+            $ret = $this->is_request_success($response_raw, $field, $errinfo);
 
             return $ret;
         }
@@ -887,7 +897,7 @@ class wechatlib
 
             $errinfo = [];
             $errinfo['url'] = $url;
-            $errinfo['api'] = '获取 创建临时二维码';
+            $errinfo['api'] = '创建临时二维码';
             $field = [
                 [
                     'name' => 'ticket',
@@ -1041,8 +1051,12 @@ class wechatlib
                 'expire_time' => $expire_time,
                 'create_time' => time()
             ];
-            $txt = serialize($binary);
-            $file = fopen($cache_file, "w");
+            $txt = @serialize($binary);
+            $file = @fopen($cache_file, "w");
+            if ($file === false) {
+                $errinfo['msg'] = '缓存文件打开失败';
+                throw new OtherException($errinfo);
+            }
             fwrite($file, $txt);
             fclose($file);
         }
@@ -1057,6 +1071,10 @@ class wechatlib
             $errinfo['key'] = $name;
 
             $txt = file_get_contents($cache_file);
+            if ($txt === false) {
+                $errinfo['msg'] = '缓存文件打开失败';
+                throw new OtherException($errinfo);
+            }
             $binary = @unserialize($txt);
             if ($binary === false) {
                 $errinfo['msg'] = '反序列化失败';
