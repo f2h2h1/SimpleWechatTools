@@ -5,11 +5,11 @@ root = true
 # 文件的charset。有以下几种类型：latin1, utf-8, utf-8-bom, utf-16be, utf-16le
 charset = utf-8
 # 缩进使用 tab 或者 space
-indent_style = space
+indent_style = tab
 # 缩进为 space 时，缩进的字符数
-indent_size = 4
+# indent_size = 4
 # 缩进为 tab 时，缩进的宽度
-# tab_width = 4
+tab_width = 4
 # 换行符的类型。lf, cr, crlf三种
 end_of_line = lf
 # 是否将行尾空格自动删除
