@@ -28,14 +28,15 @@ class WechatException extends \Exception
 {
 	private $errinfo;
 
-	function __construct(array $errinfo, int $code = 0, Throwable $previous = NULL)
+	function __construct(array $errinfo, int $code = 0, Throwable $previous = null)
 	{
 		$message = $errinfo['msg'];
 		$this->errinfo = $errinfo;
+		$this->errinfo['trace'] = $this->__toString();
 		parent::__construct($message, $code, $previous);
 	}
 
-	public function getWechatExceptionMsg()
+	public function getWechatExceptionMsg() : array
 	{
 		return $this->errinfo;
 	}
@@ -117,7 +118,7 @@ class wechatlib
 			}
 		}
 
-		public function get_appid()
+		public function get_appid() : string
 		{
 			return $this->app_id;
 		}
@@ -129,7 +130,7 @@ class wechatlib
 		/**
 		 * 验证 Token
 		 */
-		public function check_token()
+		public function check_token() : bool
 		{
 			$signature = empty($_GET["signature"]) ? '' : $_GET["signature"]; // 微信加密签名
 			$timestamp = empty($_GET["timestamp"]) ? '' : $_GET["timestamp"]; // 时间戳
@@ -168,7 +169,9 @@ class wechatlib
 			$postObj = simplexml_load_string(file_get_contents("php://input"), 'SimpleXMLElement', LIBXML_NOCDATA);
 			if ( ! $postObj or $postObj->FromUserName === NULL or $postObj->ToUserName === NULL)
 			{
-				throw new WechatException('微信消息错误', 0);
+				$e = new WechatException(['msg' => '微信消息错误'], 0);
+				$this->logger($e);
+				throw $e;
 			}
 
 			return $postObj;
@@ -177,7 +180,7 @@ class wechatlib
 		/**
 		 * 获取 access_token
 		 */
-		public function get_access_token()
+		public function get_access_token() : string
 		{
 			$key = "access_token@".$this->app_id;
 			$ret = $this->get_cache($key);
@@ -194,7 +197,7 @@ class wechatlib
 
 			return $access_token;
 		}
-		private function refresh_get_access_token()
+		private function refresh_get_access_token() : string
 		{
 			$url = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={$this->app_id}&secret={$this->app_secret}";
 			$response_raw = file_get_contents($url);
@@ -218,7 +221,7 @@ class wechatlib
 		/**
 		 * 创建菜单
 		 */
-		public function create_menu($data)
+		public function create_menu(array $data) : array
 		{
 			$data = json_encode($data, JSON_UNESCAPED_UNICODE);
 			$access_token = $this->get_access_token();
@@ -245,7 +248,7 @@ class wechatlib
 		/**
 		 * 生成随机字符串
 		 */
-		private function get_noncestr($length = 16)
+		private function get_noncestr(int $length = 16) : string
 		{
 			$chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 			$str = "";
@@ -259,22 +262,28 @@ class wechatlib
 		/**
 		 * 判断请求是否成功
 		 */
-		private function is_request_success($response_raw, $field, $errinfo)
+		private function is_request_success(string $response_raw, array $field, array $errinfo) : array
 		{
 			$errinfo['response_raw'] = $response_raw;
 			if ($response_raw === false) {
-				throw new RequestException($errinfo);
+				$e = new RequestException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 
 			$response_json = json_decode($response_raw, true);
 			if ($response_json === null) {
 				$errinfo['json_last_error_msg'] = json_last_error_msg();
-				throw new JsonException($errinfo);
+				$e = new JsonException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 
 			$errinfo['response_json'] = $response_json;
 			if ($this->has_error_code($response_json)) {
-				throw new HasErrorCodeException($errinfo);
+				$e = new HasErrorCodeException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 
 			$this->has_field($response_json, $field, $errinfo);
@@ -285,9 +294,9 @@ class wechatlib
 		/**
 		 * 判断返回值里是否有错误代码
 		 */
-		private function has_error_code($tag)
+		private function has_error_code(array $tag) : bool
 		{
-			if (isset($ret['errcode']) && $ret['errcode'] !== 0) {
+			if (isset($tag['errcode']) && $tag['errcode'] !== 0) {
 				return true;
 			}
 			return false;
@@ -296,7 +305,7 @@ class wechatlib
 		/**
 		 * 判断返回的数据里是否有包含必要字段
 		 */
-		private function has_field($tag, $field, $errinfo)
+		private function has_field(array $tag, array $field, array $errinfo) : void
 		{
 			foreach ($field as $value) {
 				$errinfo['field'] = $value['name'];
@@ -306,39 +315,57 @@ class wechatlib
 					$tag_item_type;
 					if ($type === 'number') {
 						if (!(is_int($tag_item) || is_float($tag_item))) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 						if ($value['empty'] === false && $tag_item === 0) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 					} else if ($type === 'string') {
 						if (!is_string($tag_item)) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 						if ($value['empty'] === false && $tag_item === '') {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 					} else if ($type === 'array') {
 						if (!is_array($tag_item)) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 						if ($value['empty'] === false && count($tag_item) === 0) {
 							throw new LackKeyParametersException($errinfo);
 						}
 					} else if ($type === 'boolean') {
 						if (!is_bool($tag_item)) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 						if ($value['empty'] === false && $tag_item === false) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 					} else if ($type === 'null') {
 						if ($tag_item !== null) {
-							throw new LackKeyParametersException($errinfo);
+							$e = new LackKeyParametersException($errinfo);
+							$this->logger($e);
+							throw $e;
 						}
 					}
 				} else {
-					throw new LackKeyParametersException($errinfo);
+					$e = new LackKeyParametersException($errinfo);
+					$this->logger($e);
+					throw $e;
 				}
 			}
 		}
@@ -350,7 +377,7 @@ class wechatlib
 		/**
 		 * 回复文本消息
 		 */
-		public function transmit_text($object, $content)
+		public function transmit_text($object, string $content) : string
 		{
 			if ( ! isset($content) or empty($content))
 			{
@@ -372,7 +399,7 @@ class wechatlib
 		/**
 		 * 回复图文消息
 		 */
-		public function transmitNews($object, $newsArray)
+		public function transmitNews($object, array $newsArray) : string
 		{
 			if (!is_array($newsArray)) {
 				return "";
@@ -399,13 +426,14 @@ class wechatlib
 						</xml>";
 
 			$result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time(), count($newsArray));
+
 			return $result;
 		}
 
 		/**
 		 * 回复音乐消息
 		 */
-		public function transmitMusic($object, $musicArray)
+		public function transmitMusic($object, array $musicArray) : string
 		{
 			if (!is_array($musicArray)) {
 				return "";
@@ -428,13 +456,14 @@ class wechatlib
 						</xml>";
 
 			$result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+
 			return $result;
 		}
 
 		/**
 		 * 回复图片消息
 		 */
-		public function transmitImage($object, $imageArray)
+		public function transmitImage($object, array $imageArray) : string
 		{
 			$itemTpl = "<Image>
 							<MediaId><![CDATA[%s]]></MediaId>
@@ -451,13 +480,14 @@ class wechatlib
 						</xml>";
 
 			$result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+
 			return $result;
 		}
 
 		/**
 		 * 回复语音消息
 		 */
-		public function transmitVoice($object, $voiceArray)
+		public function transmitVoice($object, array $voiceArray) : string
 		{
 			$itemTpl = "<Voice>
 							<MediaId><![CDATA[%s]]></MediaId>
@@ -473,13 +503,14 @@ class wechatlib
 						</xml>";
 
 			$result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+
 			return $result;
 		}
 
 		/**
 		 * 回复视频消息
 		 */
-		public function transmitVideo($object, $videoArray)
+		public function transmitVideo($object, array $videoArray) : string
 		{
 			$itemTpl = "<Video>
 							<MediaId><![CDATA[%s]]></MediaId>
@@ -499,6 +530,7 @@ class wechatlib
 					</xml>";
 
 			$result = sprintf($xmlTpl, $object->FromUserName, $object->ToUserName, time());
+
 			return $result;
 		}
 
@@ -509,7 +541,7 @@ class wechatlib
 		/**
 		 * 获取网页授权的链接
 		 */
-		public function get_web_authorize_link($redirect_uri, $scope = 'snsapi_base', $state = '')
+		public function get_web_authorize_link(string $redirect_uri, string $scope = 'snsapi_base', string $state = '') : string
 		{
 			$appid = $this->app_id;
 			$redirect_uri = urlencode($redirect_uri);
@@ -521,7 +553,7 @@ class wechatlib
 		/**
 		 * 获取网页授权的 access_token
 		 */
-		public function get_web_access_token($code)
+		public function get_web_access_token(string $code)
 		{
 			$url = "https://api.weixin.qq.com/sns/oauth2/access_token?appid={$this->app_id}&secret={$this->app_secret}&code={$code}&grant_type=authorization_code";
 			$response_raw = file_get_contents($url);
@@ -549,7 +581,7 @@ class wechatlib
 		/**
 		 * 网页授权-获取用户信息
 		 */
-		public function get_web_user_info($web_access_token, $openid)
+		public function get_web_user_info(string $web_access_token, string $openid)
 		{
 			$userinfo_url = "https://api.weixin.qq.com/sns/userinfo?access_token={$web_access_token}&openid={$openid}&lang=zh_CN";
 			$response_raw = file_get_contents($userinfo_url);
@@ -582,7 +614,7 @@ class wechatlib
 		/**
 		 * 获取 jssdk 的签名
 		 */
-		public function get_jssk_signature()
+		public function get_jssk_signature() : string
 		{
 			$jsapi_ticket = $this->get_jsapi_ticket();//获取jssdk的ticket
 			$noncestr = $this->get_noncestr();// 生成签名的随机字符串
@@ -619,7 +651,7 @@ class wechatlib
 		/**
 		 * 获取卡劵的签名 cardSign
 		 */
-		public function get_cardSign($card_id)
+		public function get_cardSign(string $card_id) : string
 		{
 			$timestamp = time();
 			$noncestr = $this->get_noncestr();
@@ -644,7 +676,7 @@ class wechatlib
 		/**
 		 * 获取用户信息
 		 */
-		public function get_user_info($openid)
+		public function get_user_info(string $openid) : array
 		{
 			$access_token = $this->get_access_token();
 			$url = "https://api.weixin.qq.com/cgi-bin/user/info?access_token={$access_token}&openid={$openid}&lang=zh_CN";
@@ -668,38 +700,43 @@ class wechatlib
 		/**
 		 * 通过 openid 获取 unionid
 		 */
-		public function openid2unionid($openid)
+		public function openid2unionid(string $openid) : string
 		{
 			$access_token = $this->get_access_token();
 			$url = "https://api.weixin.qq.com/cgi-bin/user/info?access_token={$access_token}&openid={$openid}&lang=zh_CN";
 			$response_raw = file_get_contents($url);
-			$user_info_arr = json_decode($response_raw, TRUE);
-			if ($user_info_arr === NULL)
-			{
-				throw new WechatException(array('msg' => 'unionid获取失败',
-												'url' => $url,
-												'response_raw' => $response_raw,
-												'json_last_error_msg' => json_last_error_msg()));
-			}
-			if (empty($user_info_arr['unionid']))
-			{
-				throw new WechatException(array('msg' => 'unionid获取失败',
-												'url' => $url,
-												'response_raw' => $response_raw,
-												'$user_info_arr' => $user_info_arr));
-			}
-			return $user_info_arr['unionid'];
+
+			$errinfo = [];
+			$errinfo['url'] = $url;
+			$errinfo['api'] = '通过 openid 获取 unionid';
+			$field = [
+				[
+					'name' => 'unionid',
+					'type' => 'string',
+					'empty' => false
+				]
+			];
+			$ret = $this->is_request_success($response_raw, $field, $errinfo);
+
+			return $ret['unionid'];
 		}
 
 		/**
 		 * 获取关注者列表
 		 */
-		public function get_user_list($next_openid = null)
+		public function get_user_list(string $next_openid = '') : array
 		{
 			$access_token = $this->get_access_token();
 			$url = "https://api.weixin.qq.com/cgi-bin/user/get?access_token=".$access_token."&next_openid=".$next_openid;
-			$res = file_get_contents($url);
-			return json_decode($res, true);
+			$response_raw = file_get_contents($url);
+
+			$errinfo = [];
+			$errinfo['url'] = $url;
+			$errinfo['api'] = '获取关注者列表';
+			$field = [];
+			$ret = $this->is_request_success($response_raw, $field, $errinfo);
+
+			return $ret;
 		}
 
 	# endregion 用户管理
@@ -709,9 +746,8 @@ class wechatlib
 		/**
 		 * 发送客服消息
 		 */
-		private function send_custom_message($msg)
+		private function send_custom_message(array $msg) : array
 		{
-
 			$access_token = $this->get_access_token();
 			$url = "https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=".$access_token;
 			$data = urldecode(json_encode($msg));
@@ -727,7 +763,7 @@ class wechatlib
 
 			$errinfo = [];
 			$errinfo['url'] = $url;
-			$errinfo['api'] = '获取 发送客服消息';
+			$errinfo['api'] = '发送客服消息';
 			$field = [];
 			$ret = $this->is_request_success($response_raw, $field, $errinfo);
 
@@ -737,7 +773,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，文本消息
 		 */
-		public function send_custom_message_text($touser, $content)
+		public function send_custom_message_text(string $touser, string $content) : array
 		{
 			$msg = array(
 				'touser' => $touser,
@@ -752,7 +788,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，图片消息
 		 */
-		public function send_custom_message_image($touser, $media_id)
+		public function send_custom_message_image(string $touser, string $media_id) : array
 		{
 			$msg = array(
 				'touser' => $touser,
@@ -767,7 +803,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，语音消息
 		 */
-		public function send_custom_message_voice($touser, $media_id)
+		public function send_custom_message_voice(string $touser, string $media_id) : array
 		{
 			$msg = array(
 				'touser' => $touser,
@@ -782,7 +818,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，视频消息
 		 */
-		public function send_custom_message_video($touser, $data)
+		public function send_custom_message_video(string $touser, array $data) : array
 		{
 			$msg = array(
 				'touser' => $touser,
@@ -800,7 +836,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，音乐消息
 		 */
-		public function send_custom_message_music($touser, $data)
+		public function send_custom_message_music(string $touser, array $data) : array
 		{
 			$msg = array(
 				'touser' => $touser,
@@ -819,7 +855,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，发送图文消息（点击跳转到外链）
 		 */
-		public function send_custom_message_news($touser, $data)
+		public function send_custom_message_news(string $touser, array $data) : array
 		{
 			foreach ($data as $key => $value) {
 				$articles[$key]['title'] = urlencode($value['Title']);
@@ -883,7 +919,7 @@ class wechatlib
 		/**
 		 * 创建临时二维码
 		 */
-		public function create_qrcode($scene_str, $expire_seconds = 604800)
+		public function create_qrcode(string $scene_str, int $expire_seconds = 604800) : array
 		{
 			$access_token = $this->get_access_token();
 			$url = "https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token={$access_token}";
@@ -933,7 +969,9 @@ class wechatlib
 				$errinfo['msg'] = '图片格式错误';
 				$errinfo['api'] = '上传临时素材-图片';
 				$errinfo['img_info'] = $img_info;
-				throw new OtherException($errinfo);
+				$e = new OtherException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 
 			if ($file_name === '')
@@ -1005,7 +1043,7 @@ class wechatlib
 		/**
 		 * 发送模板消息
 		 */
-		public function send_tpl_msg($touser, $template_id, $data, $tpl_url = '', $topcolor = '#FF0000')
+		public function send_tpl_msg(string $touser, string $template_id, array $data, string $tpl_url = '', string $topcolor = '#FF0000') : array
 		{
 			$access_token = $this->get_access_token();
 			$url = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={$access_token}";
@@ -1045,7 +1083,7 @@ class wechatlib
 
 	# region 缓存部分
 
-		private function set_cache($name, $value, $expire_time)
+		private function set_cache(string $name, string $value, int $expire_time) : void
 		{
 			$cache_file = $this->temp_path."/".$name;
 			$binary = [
@@ -1058,13 +1096,15 @@ class wechatlib
 			$file = @fopen($cache_file, "w");
 			if ($file === false) {
 				$errinfo['msg'] = '缓存文件打开失败';
-				throw new OtherException($errinfo);
+				$e = new OtherException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 			fwrite($file, $txt);
 			fclose($file);
 		}
 
-		private function get_cache($name)
+		private function get_cache(string $name) : string
 		{
 			$cache_file = $this->temp_path."/".$name;
 			if (!is_file($cache_file)) {
@@ -1076,24 +1116,30 @@ class wechatlib
 			$txt = file_get_contents($cache_file);
 			if ($txt === false) {
 				$errinfo['msg'] = '缓存文件打开失败';
-				throw new OtherException($errinfo);
+				$e = new CacheException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 			$binary = @unserialize($txt);
 			if ($binary === false) {
 				$errinfo['msg'] = '反序列化失败';
-				throw new CacheException($errinfo);
+				$e = new CacheException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 
 			if (!isset($binary['name']) || !isset($binary['value']) || !isset($binary['expire_time'])) {
 				$errinfo['msg'] = '缺少关键参数';
 				$errinfo['binary'] = $binary;
-				throw new CacheException($errinfo);
+				$e = new CacheException($errinfo);
+				$this->logger($e);
+				throw $e;
 			}
 
 			return $binary;
 		}
 
-		private function del_cache($name)
+		private function del_cache(string $name)
 		{
 			$cache_file = $name;
 			return @unlink($cache_file);
