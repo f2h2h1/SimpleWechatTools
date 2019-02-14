@@ -104,6 +104,7 @@ class wechatlib
 			$this->token = empty($conf['token']) ? '' : $conf['token'];
 			$this->app_id = empty($conf['app_id']) ? '' : $conf['app_id'];
 			$this->app_secret = empty($conf['app_secret']) ? '' : $conf['app_secret'];
+			$this->gh_id = empty($conf['gh_id']) ? '' : $conf['gh_id'];
 			$this->temp_path = empty($conf['temp_path']) ? 'wecache' : $conf['temp_path'];
 			$this->cache_type = empty($conf['cache_type']) ? 'file' : $conf['cache_type'];
 			$this->log_path = empty($conf['log_path']) ? '' : $conf['log_path'];
