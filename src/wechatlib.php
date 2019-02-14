@@ -609,7 +609,7 @@ class wechatlib
 		/**
 		 * 获取网页授权的 access_token
 		 */
-		public function get_web_access_token(string $code)
+		public function get_web_access_token(string $code) : array
 		{
 			$url = "https://api.weixin.qq.com/sns/oauth2/access_token?appid={$this->app_id}&secret={$this->app_secret}&code={$code}&grant_type=authorization_code";
 			$response_raw = file_get_contents($url);
@@ -637,7 +637,7 @@ class wechatlib
 		/**
 		 * 网页授权-获取用户信息
 		 */
-		public function get_web_user_info(string $web_access_token, string $openid)
+		public function get_web_user_info(string $web_access_token, string $openid) : array
 		{
 			$userinfo_url = "https://api.weixin.qq.com/sns/userinfo?access_token={$web_access_token}&openid={$openid}&lang=zh_CN";
 			$response_raw = file_get_contents($userinfo_url);
@@ -934,7 +934,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，图文消息（点击跳转到图文消息页面）
 		 */
-		public function send_custom_message_mpnews($touser, $media_id)
+		public function send_custom_message_mpnews($touser, $media_id) : array
 		{
 			foreach ($media_id as $key => $value) {
 				$temp[$key]['media_id'] = $value;
@@ -952,7 +952,7 @@ class wechatlib
 		/**
 		 * 发送客服消息，发送卡券
 		 */
-		public function send_custom_message_wxcard($touser, $card_id)
+		public function send_custom_message_wxcard($touser, $card_id) : array
 		{
 			$sgins = $this->get_cardSign($card_id);
 
@@ -1017,7 +1017,7 @@ class wechatlib
 		/**
 		 * 上传临时素材-图片
 		 */
-		public function add_temp_material_img($binary, $file_name = '')
+		public function add_temp_material_img($binary, $file_name = '') : array
 		{
 			$img_info = getimagesizefromstring($binary);
 			if (empty($img_info[2]) or empty($img_info['mime']))
@@ -1042,7 +1042,7 @@ class wechatlib
 		/**
 		 * 上传临时素材
 		 */
-		public function add_temp_material($file_name, $file_type, $type, $binary)
+		public function add_temp_material($file_name, $file_type, $type, $binary) : array
 		{
 			// 拼接请求头
 			$boundary = time().mt_rand(10000, 99999);
