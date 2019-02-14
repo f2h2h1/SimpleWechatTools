@@ -99,15 +99,9 @@ class wechatlib
 		private $cache_type;
 		private $log_path;
 
-		function __construct($conf)
+		function __construct(array $conf = array())
 		{
-			$this->token = empty($conf['token']) ? '' : $conf['token'];
-			$this->app_id = empty($conf['app_id']) ? '' : $conf['app_id'];
-			$this->app_secret = empty($conf['app_secret']) ? '' : $conf['app_secret'];
-			$this->gh_id = empty($conf['gh_id']) ? '' : $conf['gh_id'];
-			$this->temp_path = empty($conf['temp_path']) ? 'wecache' : $conf['temp_path'];
-			$this->cache_type = empty($conf['cache_type']) ? 'file' : $conf['cache_type'];
-			$this->log_path = empty($conf['log_path']) ? '' : $conf['log_path'];
+			$this->set_conf($conf);
 
 			if ($this->cache_type === 'file')
 			{
@@ -119,9 +113,70 @@ class wechatlib
 			}
 		}
 
-		public function get_appid() : string
+		public function get_conf() : array
+		{
+			$conf = [
+				'token' => $this->token,
+				'app_id' => $this->app_id,
+				'app_secret' => $this->app_secret,
+				'gh_id' => $this->gh_id,
+				'temp_path' => $this->temp_path,
+				'cache_type' => $this->cache_type,
+				'log_path' => $this->log_path,
+			];
+
+			return $conf;
+		}
+
+		public function get_token() : string
+		{
+			return $this->token;
+		}
+
+		public function get_app_id() : string
 		{
 			return $this->app_id;
+		}
+
+		public function get_app_secret() : string
+		{
+			return $this->app_secret;
+		}
+
+		public function get_gh_id() : string
+		{
+			return $this->gh_id;
+		}
+
+		public function set_conf(array $conf) : void
+		{
+			$this->token = empty($conf['token']) ? '' : $conf['token'];
+			$this->app_id = empty($conf['app_id']) ? '' : $conf['app_id'];
+			$this->app_secret = empty($conf['app_secret']) ? '' : $conf['app_secret'];
+			$this->gh_id = empty($conf['gh_id']) ? '' : $conf['gh_id'];
+			$this->temp_path = empty($conf['temp_path']) ? 'wecache' : $conf['temp_path'];
+			$this->cache_type = empty($conf['cache_type']) ? 'file' : $conf['cache_type'];
+			$this->log_path = empty($conf['log_path']) ? '' : $conf['log_path'];
+		}
+
+		public function set_token(string $token) : void
+		{
+			$this->token = $token;
+		}
+
+		public function set_app_id(string $app_id) : void
+		{
+			$this->app_id = $app_id;
+		}
+
+		public function set_app_secret(string $app_secret) : void
+		{
+			$this->app_secret = $app_secret;
+		}
+
+		public function set_gh_id(string $gh_id) : void
+		{
+			$this->gh_id = $gh_id;
 		}
 
 	# endregion 类相关
@@ -165,7 +220,7 @@ class wechatlib
 		/**
 		 * 接收微信的消息
 		 */
-		public function wechat_massage()
+		public function wechat_massage() : \SimpleXMLElement
 		{
 			$postObj = simplexml_load_string(file_get_contents("php://input"), 'SimpleXMLElement', LIBXML_NOCDATA);
 			if ( ! $postObj or $postObj->FromUserName === NULL or $postObj->ToUserName === NULL)
@@ -378,7 +433,7 @@ class wechatlib
 		/**
 		 * 回复文本消息
 		 */
-		public function transmit_text($object, string $content) : string
+		public function transmit_text(\SimpleXMLElement $object, string $content) : string
 		{
 			if ( ! isset($content) or empty($content))
 			{
@@ -400,7 +455,7 @@ class wechatlib
 		/**
 		 * 回复图文消息
 		 */
-		public function transmitNews($object, array $newsArray) : string
+		public function transmitNews(\SimpleXMLElement $object, array $newsArray) : string
 		{
 			if (!is_array($newsArray)) {
 				return "";
@@ -434,7 +489,7 @@ class wechatlib
 		/**
 		 * 回复音乐消息
 		 */
-		public function transmitMusic($object, array $musicArray) : string
+		public function transmitMusic(\SimpleXMLElement $object, array $musicArray) : string
 		{
 			if (!is_array($musicArray)) {
 				return "";
@@ -464,7 +519,7 @@ class wechatlib
 		/**
 		 * 回复图片消息
 		 */
-		public function transmitImage($object, array $imageArray) : string
+		public function transmitImage(\SimpleXMLElement $object, array $imageArray) : string
 		{
 			$itemTpl = "<Image>
 							<MediaId><![CDATA[%s]]></MediaId>
@@ -488,7 +543,7 @@ class wechatlib
 		/**
 		 * 回复语音消息
 		 */
-		public function transmitVoice($object, array $voiceArray) : string
+		public function transmitVoice(\SimpleXMLElement $object, array $voiceArray) : string
 		{
 			$itemTpl = "<Voice>
 							<MediaId><![CDATA[%s]]></MediaId>
@@ -511,7 +566,7 @@ class wechatlib
 		/**
 		 * 回复视频消息
 		 */
-		public function transmitVideo($object, array $videoArray) : string
+		public function transmitVideo(\SimpleXMLElement $object, array $videoArray) : string
 		{
 			$itemTpl = "<Video>
 							<MediaId><![CDATA[%s]]></MediaId>
