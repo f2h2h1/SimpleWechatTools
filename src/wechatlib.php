@@ -590,6 +590,17 @@ class wechatlib
 			return $result;
 		}
 
+		/**
+		 * 不响应微信的消息
+		 * 
+		 * 假如服务器无法保证在五秒内处理回复，则必须回复“success”或者“”（空串），否则微信后台会发起三次重试。
+		 * 三次重试后，依旧没有及时回复任何内容，系统自动在粉丝会话界面出现错误提示“该公众号暂时无法提供服务，请稍后再试”。
+		 */
+		public function do_not_respond()
+		{
+			return 'success';
+		}
+
 	# endregion 被动回复消息
 
 	# region 网页开发
@@ -1160,7 +1171,7 @@ class wechatlib
 			fclose($file);
 		}
 
-		private function get_cache(string $name) : string
+		private function get_cache(string $name) : array
 		{
 			$cache_file = $this->temp_path."/".$name;
 			if (!is_file($cache_file)) {
