@@ -62,10 +62,21 @@ class JsonException extends WechatException
 
 class HasErrorCodeException extends WechatException
 {
+	private $errorCode = null;
+
 	function __construct(array $errinfo, int $code = 0, Throwable $previous = NULL)
 	{
 		$errinfo['msg'] = empty($errinfo['msg']) ? '返回码不为 0' : $errinfo['msg'];
+		if (isset($errinfo['response_json']['errcode']))
+		{
+			$this->errorCode = (string)$errinfo['response_json']['errcode'];
+		}
 		parent::__construct($errinfo, $code, $previous);
+	}
+
+	public function getWeChatErrorCode() : ?string
+	{
+		return $this->errorCode;
 	}
 }
 
@@ -240,13 +251,14 @@ class wechatlib
 		{
 			$key = "access_token@".$this->app_id;
 			$ret = $this->get_cache($key);
-			if ($ret === false || $ret['expire_time'] < time()) {
-				$this->del_cache($key);
-				$access_token = $this->refresh_get_access_token();
-				$key = "access_token@".$this->app_id;
-				$value = $access_token;
-				$expire_time = time() + 7000;
-				$this->set_cache($key, $value, $expire_time);
+			if ($ret === null || $ret['expire_time'] < time()) {
+				// $this->del_cache($key);
+				// $access_token = $this->refresh_get_access_token();
+				// $key = "access_token@".$this->app_id;
+				// $value = $access_token;
+				// $expire_time = time() + 7000;
+				// $this->set_cache($key, $value, $expire_time);
+				$access_token = $this->refresh_access_token();
 			} else {
 				$access_token = $ret['value'];
 			}
@@ -270,6 +282,21 @@ class wechatlib
 			];
 			$ret = $this->is_request_success($response_raw, $field, $errinfo);
 			$access_token = $ret['access_token'];
+
+			return $access_token;
+		}
+
+		/**
+		 * 手动刷新 access_token
+		 */
+		public function refresh_access_token() : string
+		{
+			$key = "access_token@".$this->app_id;
+			$this->del_cache($key);
+			$access_token = $this->refresh_get_access_token();
+			$value = $access_token;
+			$expire_time = time() + 7000;
+			$this->set_cache($key, $value, $expire_time);
 
 			return $access_token;
 		}
@@ -352,7 +379,8 @@ class wechatlib
 		 */
 		private function has_error_code(array $tag) : bool
 		{
-			if (isset($tag['errcode']) && $tag['errcode'] !== 0) {
+			if (isset($tag['errcode']) && $tag['errcode'] !== 0)
+			{
 				return true;
 			}
 			return false;
@@ -1171,11 +1199,11 @@ class wechatlib
 			fclose($file);
 		}
 
-		private function get_cache(string $name) : array
+		private function get_cache(string $name) : ?array
 		{
 			$cache_file = $this->temp_path."/".$name;
 			if (!is_file($cache_file)) {
-				return false;
+				return null;
 			}
 
 			$errinfo['key'] = $name;
